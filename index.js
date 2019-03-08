@@ -3,6 +3,11 @@ const Discord = require("discord.js");
 const fs = require("fs");
 const bot = new Discord.Client({disableEveryone: true});
 bot.commands = new Discord.Collection();
+let coins = require("./coins.json");
+let xp = require("./xp.json");
+let purple = botconfig.purple;
+let cooldown = new Set();
+let cdseconds = 5;
 
 fs.readdir("./commands/", (err, files) => {
 
@@ -19,7 +24,7 @@ fs.readdir("./commands/", (err, files) => {
     console.log(`${f} loaded!`);
     bot.commands.set(props.help.name, props);
   });
-  
+
 });
 bot.on("ready", async () => {
     console.log(`Bot is online`);
@@ -43,7 +48,68 @@ bot.on("message", async message => {
   let args = messageArray.slice(1);
   let commandfile = bot.commands.get(cmd.slice(prefix.length));
   if(commandfile) commandfile.run(bot,message,args);
-// if(cmd === `${prefix}kick`){
+
+  if(!coins[message.author.id]){
+      coins[message.author.id] = {
+        coins: 0
+      };
+    }
+
+    let coinAmt = Math.floor(Math.random() * 15) + 1;
+    let baseAmt = Math.floor(Math.random() * 15) + 1;
+    console.log(`${coinAmt} ; ${baseAmt}`);
+
+    if(coinAmt === baseAmt){
+      coins[message.author.id] = {
+        coins: coins[message.author.id].coins + coinAmt
+      };
+    fs.writeFile("./coins.json", JSON.stringify(coins), (err) => {
+      if (err) console.log(err)
+    });
+    let coinEmbed = new Discord.RichEmbed()
+    .setAuthor(message.author.username)
+    .setColor("#0000FF")
+    .addField("💸", `${coinAmt} coins added!`);
+
+    message.channel.send(coinEmbed).then(msg => {msg.delete(5000)});
+    }
+
+    let xpAdd = Math.floor(Math.random() * 7) + 8;
+    console.log(xpAdd);
+
+    if(!xp[message.author.id]){
+      xp[message.author.id] = {
+        xp: 0,
+        level: 1
+      };
+    }
+
+
+    let curxp = xp[message.author.id].xp;
+    let curlvl = xp[message.author.id].level;
+    let nxtLvl = xp[message.author.id].level * 300;
+    xp[message.author.id].xp =  curxp + xpAdd;
+    if(nxtLvl <= xp[message.author.id].xp){
+      xp[message.author.id].level = curlvl + 1;
+      let lvlup = new Discord.RichEmbed()
+      .setTitle("Level Up!")
+      .setColor(purple)
+      .addField("New Level", curlvl + 1);
+
+      message.channel.send(lvlup).then(msg => {msg.delete(5000)});
+    }
+    fs.writeFile("./xp.json", JSON.stringify(xp), (err) => {
+      if(err) console.log(err)
+    });
+    let prefix = prefixes[message.guild.id].prefixes;
+    if(!message.content.startsWith(prefix)) return;
+    if(cooldown.has(message.author.id)){
+      message.delete();
+      return message.reply("You have to wait 5 seconds between commands.")
+    }
+    if(!message.member.hasPermission("ADMINISTRATOR")){
+      cooldown.add(message.author.id);
+//if(cmd === `${prefix}kick`){
 
 //   //!kick @daeshan askin for it
 
@@ -74,14 +140,14 @@ bot.on("message", async message => {
 // if(cmd === `${prefix}ban`){
 
 //   let bUser = message.guild.member(message.mentions.users.first() || message.guild.members.get(args[0]));
-//   if(!bUser) return message.channel.send("Can't find user!");
-//   let bReason = args.join(" ").slice(22);
-//   if(!message.member.hasPermission("MANAGE_MEMBERS")) return message.channel.send("No can do pal!");
-//   if(bUser.hasPermission("MANAGE_MESSAGES")) return message.channel.send("That person can't be kicked!");
-
-//   let banEmbed = new Discord.RichEmbed()
-//   .setDescription("~Ban~")
-//   .setColor("#bc0000")
+  // if(!bUser) return message.channel.send("Can't find user!");
+  // let bReason = args.join(" ").slice(22);
+  // if(!message.member.hasPermission("MANAGE_MEMBERS")) return message.channel.send("No can do pal!");
+  // if(bUser.hasPermission("MANAGE_MESSAGES")) return message.channel.send("That person can't be kicked!");
+  //
+  // let banEmbed = new Discord.RichEmbed()
+  // .setDescription("~Ban~")
+  // .setColor("#bc0000")
 //   .addField("Banned User", `${bUser} with ID ${bUser.id}`)
 //   .addField("Banned By", `<@${message.author.id}> with ID ${message.author.id}`)
 //   .addField("Banned In", message.channel)
@@ -117,7 +183,7 @@ bot.on("message", async message => {
 
 
 // if(cmd === `${prefix}help`){
-    
+
 //   let embedbot = new Discord.RichEmbed()
 
 //   .setColor("#15f153")
@@ -161,6 +227,12 @@ bot.on("message", async message => {
 // if(cmd === `${prefix}hello`){
 //    return message.channel.send(`Hello, Nice to meet you buddy! ${message.author}`);
 //   }
+
+setTimeout(() => {
+   cooldown.delete(message.author.id)
+ }, cdseconds * 1000)
+
+});
 
 });
 bot.login(process.env.BOT_TOKEN);
